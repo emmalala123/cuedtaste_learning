@@ -30,7 +30,9 @@ RED = (255,   0,   0)
 
 # Set the height and width of the screen
 screen_w = 800
-screen_h = 480
+screen_h = 1800
+
+image_dict = {1: 'checker.png', 2: 'circles.png', 3: 'circles_display.jpeg', 4: 'black_polka.jpeg'}
 
 class Block(pg.sprite.Sprite):
     """
@@ -49,9 +51,14 @@ class Block(pg.sprite.Sprite):
         # This could also be an image loaded from the disk.
         self.width = width
         self.height = screen_h
-        self.image = pg.Surface([width, self.height])
+        # self.image = pg.Surface([width, self.height])
+        if color != BLACK:
+            self.image = pg.transform.scale(color, (self.width, screen_h))
+            screen.blit(color, (width, self.height))
+        else: 
+            self.image = pg.Surface([width, self.height])
+            self.image.fill(color)
         self.speed = speed
-        self.image.fill(color)
 
         # Update the position of this object by setting the values
         # of rect.x and rect.y
@@ -68,12 +75,16 @@ class Block(pg.sprite.Sprite):
             self.rect.right = self.origin_x
 
 # blocket is now modified to make a large block pass through the screen very fast to appear as flashing, rather than many bars moving
-def Blockset(number, speed):  # instead of number of blocks, number now determines how long block is, which you modulate to change frequency
+
+def Blockset(number, speed, cue=None):  # instead of number of blocks, number now determines how long block is, which you modulate to change frequency
     spritelist = pg.sprite.Group()
     width = screen_w*(number*10)
     for i in range(2):
-        # This represents a block
-        block = Block(BLACK, width, speed)
+        if cue != None:
+            # This represents a block
+            block = Block(cue, width, speed)
+        else:
+            block = Block(BLACK, width, speed)
         # Set location for the block
         block.rect.x = width*2*i
         block.rect.y = 0
@@ -100,8 +111,12 @@ def load_sound(file):
 # Initialize Pygame
 pg.init()
 
-# UDP_IP = "129.64.50.48"
-UDP_IP = "10.0.0.115"
+# iterates through the dictionary to load the image-values that correspond to the keys
+for key, value in image_dict.items():
+    image_dict[key] = pg.image.load(value)
+
+# UDP_IP = "10.0.0.115"
+UDP_IP = "172.20.186.173"
 UDP_PORT = 5005
 
 sock = socket.socket(socket.AF_INET,  # internet
@@ -114,25 +129,26 @@ sig_ID = 0  # transfers the unique ID from receive function to main program
 
 signal = 0
 
+# global signal_list 
+signal_list = [1,2,3,4]
+
 screen = pg.display.set_mode((0, 0), pg.FULLSCREEN)
 
 # created a dictionary containing the .wav files
-audio_dict = {0: "pink_noise.wav", 1: "1000hz_sine.wav",
+audio_dict = {0: "pink_noise.wav", 1: "9000hz_sine.wav",
                 2: "3000hz_square.wav", 3: "5000hz_saw.wav", 
                 4: "7000hz_unalias.wav", 5: "error.wav", 6: "success.wav"}
 # iterates through the dictionary to load the sound-values that correspond to the keys
 for key, value in audio_dict.items():
     audio_dict[key] = load_sound(value)
-
 # function called in the main loop to play new sound according to keypress, which is the "num" parameter
-# if the signal is 0, the pink noise will play until the animal begins the next trial
-# pink noise indicates the ability to start the next trial
 # @run_once
+
 def pause_play(num):
+    pg.mixer.stop()
     if num == 0:
         audio_dict[num].play(-1)
     else:
-        pg.mixer.stop()
         audio_dict[num].play()
 
 # This is a list of 'sprites.' Each block in the program is
@@ -140,10 +156,10 @@ def pause_play(num):
 cue_0 = Blockset(1,1)
 # TODO 01/13/21: example of using load sound from pygame, implement for every cue
 # audio_0 = load_sound("pink_noise.wav")
-cue_1 = Blockset(1.25,-1000) #smaller value for "number" = faster flashing
-cue_2 = Blockset(1.35,-1000) #bare minimum speed needed for flashing is 1000
-cue_3 = Blockset(1.75,-1000)
-cue_4 = Blockset(2,-1000)
+cue_1 = Blockset(1,-1000, image_dict[1]) #smaller value for "number" = faster flashing
+cue_2 = Blockset(1,100, image_dict[2]) #bare minimum speed needed for flashing is 1000
+cue_3 = Blockset(2,0, image_dict[3])
+cue_4 = Blockset(2,100, image_dict[4])
 cue_5 = Blockset(0,0)
 
 # Loop until the user clicks the close button.
@@ -164,6 +180,24 @@ clock.tick(60)
 
 in_flag = 0  # in flag is used to condition the if statements below so that pause_play() is triggered only once when states change
 
+# designed to block the trials, randomization not quite working yet
+def block_trial(signal, signal_list):
+    if signal != 0:
+        if not len(signal_list) == 0:
+            print("list", signal_list)
+            isFound = False
+            for i in signal_list:
+                if i == signal and not isFound:
+                    signal_list.remove(signal)
+                    isFound = True
+            if not isFound:
+                signal = random.choice(signal_list)
+                signal_list.remove(signal)
+                print("list", signal_list)
+        else:
+            signal_list = [1,2,3,4]
+
+    return signal, signal_list
 # -------- Main Program Loop -----------
 while not done:
     # Used to manage how fast the screen updates
@@ -175,6 +209,7 @@ while not done:
     if data:
         # send this to function that initiates tone/replace keyboard values
         signal = int.from_bytes(data, "big", signed="True")
+        signal, signal_list = block_trial(signal, signal_list)
         # sets up a unique ID for each value received 
         sig_ID = sig_ID + 1
         print("received message:", signal, "ID", sig_ID)
@@ -229,6 +264,7 @@ while not done:
                 pg.mixer.stop()
                 in_flag = 0
                 screen.fill(BLACK)
+                break
                 
             if signal == 6:  # condition 6 should stop cues/give "neutral" cue and bypass delay at the end of the loop
                 pause_play(5)
@@ -259,11 +295,14 @@ while not done:
             old_ID = sig_ID  # exchanges old ID value 
 
             # Limit to 60 frames per second
-            clock.tick(20)
+            clock.tick(60)
 
-            if signal != 6 and signal != 7 and time.time() >= now + 2:
-                signal = 5
+            if signal != 6 and signal != 7 and time.time() >= now + 3:
+                # signal = 5
+                screen.fill(BLACK)
+                pg.display.flip()
                 print('true')
+                pg.mixer.stop()
                 break
 
 pg.quit()

@@ -152,9 +152,9 @@ def pause_play(num):
 cue_0 = Blockset(1,1)
 # TODO 01/13/21: example of using load sound from pygame, implement for every cue
 # audio_0 = load_sound("pink_noise.wav")
-cue_1 = Blockset(1.25,-1000, image_dict[1]) #smaller value for "number" = faster flashing
-cue_2 = Blockset(3,-1000, image_dict[2]) #bare minimum speed needed for flashing is 1000
-cue_3 = Blockset(1.75,-1000, image_dict[3])
+cue_1 = Blockset(1,-1000, image_dict[1]) #smaller value for "number" = faster flashing
+cue_2 = Blockset(1,-1000, image_dict[2]) #bare minimum speed needed for flashing is 1000
+cue_3 = Blockset(2,-1000, image_dict[3])
 cue_4 = Blockset(2,-1000, image_dict[4])
 cue_5 = Blockset(0,0)
 
@@ -243,6 +243,7 @@ while not done:
                 pg.mixer.stop()
                 in_flag = 0
                 screen.fill(BLACK)
+                break
                 
             if signal == 8:
                 pg.mixer.stop()

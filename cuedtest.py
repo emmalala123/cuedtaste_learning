@@ -202,32 +202,6 @@ class TasteToneLine(TasteLine, Tone):
 
 
 ### SECTION 2: MISC. FUNCTIONS
-
-# record() logs sensor and valve data to a .csv file. Typically instantiated as a multiprocessing.process
-def record(poke1, poke2, lines, starttime, endtime, anID):
-    print("recording started")
-    now = datetime.datetime.now()
-    d = now.strftime("%m%d%y_%Hh%Mm")
-    localpath = os.getcwd()
-    filepath = localpath + "/" + anID + "_" + d + ".csv"
-    with open(filepath, mode='w') as record_file:
-        fieldnames = ['Time', 'Poke1', 'Poke2', 'Signal', 'Line1', 'Line2', 'Line3', 'Line4']
-        record_writer = csv.writer(record_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        record_writer.writerow(fieldnames)
-        while time.time() < endtime:
-            t = round(time.time() - starttime, 2)
-            data = [str(t), str(poke1.is_crossed()), str(poke2.is_crossed())]
-            for item in lines:
-                if item.is_open:
-                    valvestate = item.taste
-                else:
-                    valvestate = "None"
-                data.append(str(valvestate))
-            record_writer.writerow(data)
-            time.sleep(0.005)
-    print("recording ended")
-
-
 # main_menu() shows the user the main menu and receives input
 def main_menu():
     options = ["clearout a line", "calibrate a line", "cuedtaste",
@@ -300,7 +274,7 @@ def cuedtaste():
 
     rew_flash = mp.Process(target=rew.flash, args=(Hz, rew_run,))
     trig_flash = mp.Process(target=trig.flash, args=(Hz, trig_run,))
-    recording = mp.Process(target=record, args=(rew, trig, lines, starttime, endtime, anID,))
+    recording = mp.Process(target=record, args=(rew, trig, lines, starttime, endtime, anID, an_int))
 
     rew_flash.start()
     trig_flash.start()
@@ -322,7 +296,7 @@ def cuedtaste():
             rew_keep_out.start()
             trig_keep_out.start()
 
-            line = random.randint(1, 3)  # select random taste
+            line = random.randint(0, 3)  # select random taste
             # line = 3
             rew_keep_out.join()
             trig_keep_out.join()  # if rat stays out of both nose pokes, state 1 begins
@@ -342,6 +316,7 @@ def cuedtaste():
         while state == 2 and time.time() <= endtime:  # state 2: Trigger activated/arming Rewarder
             if trig.is_crossed() and time.time() > wait + start:  # if rat trips sensor for 1 sec. continuously,                
                 # move to state 3
+        
                 an_int = 7
                 trig.play_tone(an_int.to_bytes(2, 'big'))
                 trig_run.value = 0 # stop blinking trigger
@@ -351,6 +326,7 @@ def cuedtaste():
                 state = 3
 
             if not trig.is_crossed():  # rat pulled out too early, return to state 0
+        
                 an_int = 6
                 trig.play_tone(an_int.to_bytes(2, 'big'))
                 trig_run.value = 0
@@ -381,6 +357,30 @@ def cuedtaste():
     rew_flash.join()
     trig_flash.join()
     print("assay completed")
+
+# record() logs sensor and valve data to a .csv file. Typically instantiated as a multiprocessing.process
+def record(poke1, poke2, lines, starttime, endtime, anID, signal):
+    print("recording started")
+    now = datetime.datetime.now()
+    d = now.strftime("%m%d%y_%Hh%Mm")
+    localpath = os.getcwd()
+    filepath = localpath + "/" + anID + "_" + d + ".csv"
+    with open(filepath, mode='w') as record_file:
+        fieldnames = ['Time', 'Poke1', 'Poke2', 'Signal', 'Line1', 'Line2', 'Line3', 'Line4', 'signal']
+        record_writer = csv.writer(record_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        record_writer.writerow(fieldnames)
+        while time.time() < endtime:
+            t = round(time.time() - starttime, 2)
+            data = [str(t), str(poke1.is_crossed()), str(poke2.is_crossed()), str(signal)]
+            for item in lines:
+                if item.is_open:
+                    valvestate = item.taste
+                else:
+                    valvestate = "None"
+                data.append(str(valvestate))
+            record_writer.writerow(data)
+            time.sleep(0.005)
+    print("recording ended")
 
 ########################################################################################################################
 ### SECTION 4: Menu control/"GUI", everything below runs on startup ###
